@@ -1,0 +1,23 @@
+services:
+  tmdb-relay:
+    image: ${PYTHON_IMAGE:-python:3.12-alpine}
+    user: "0:0"
+    working_dir: /app
+    command: ["python", "/source/bootstrap.py", "--run"]
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${PORT:-18012}:8080"
+    environment: {ADMIN_PASSWORD: '${ADMIN_PASSWORD:?请先配置 .env 中的管理员密码}', PYTHONDONTWRITEBYTECODE: "1", PYTHONUNBUFFERED: "1", DATA_DIR: /data, PORT: "8080"}
+    volumes:
+      - ./bootstrap.py:/source/bootstrap.py:ro
+      - ./app.py:/source/app.py:ro
+      - ./web:/source/web:ro
+      - relay-program:/app
+      - relay-data:/data
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt: ['no-new-privileges:true']
+    healthcheck: {test: ["CMD", "python", "/app/bootstrap.py", "--health"], interval: 30s, timeout: 5s, start_period: 10s, retries: 3}
+    logging: {driver: json-file, options: {max-size: "5m", max-file: "2"}}
+volumes: {relay-data: {}, relay-program: {}}

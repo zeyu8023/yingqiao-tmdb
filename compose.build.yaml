@@ -1,0 +1,29 @@
+# 可选的源码构建部署；默认请使用 compose.yaml
+services:
+  tmdb-relay:
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-alpine}
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP:-0.0.0.0}:${PORT:-18012}:8080"
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?请先复制 .env.example 为 .env 并设置管理员密码}
+    volumes:
+      - relay-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+volumes:
+  relay-data:

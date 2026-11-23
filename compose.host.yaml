@@ -1,0 +1,28 @@
+services:
+  tmdb-relay:
+    image: ${PYTHON_IMAGE:-python:3.12-alpine}
+    # 启动时以 root 复制程序并初始化权限，随后切换到 UID/GID 10001 运行。
+    user: "0:0"
+    # 使用 NAS 本机网络访问 Clash，网页直接监听 PORT，默认 18012。
+    network_mode: host
+    working_dir: /app
+    command: ["python", "/source/bootstrap.py", "--run"]
+    restart: unless-stopped
+    # 管理员密码从项目 .env 读取，可在同一文件设置监听 IP 和端口。
+    environment: {ADMIN_PASSWORD: '${ADMIN_PASSWORD:?请保留原 .env 中的管理员密码}', PYTHONDONTWRITEBYTECODE: "1", PYTHONUNBUFFERED: "1", DATA_DIR: /data, HOST: '${BIND_IP:-0.0.0.0}', PORT: '${PORT:-18012}'}
+    # NAS 源文件只读挂载。程序卷存放复制后的代码，数据卷保存配置和缓存。
+    volumes:
+      - ./bootstrap.py:/source/bootstrap.py:ro
+      - ./app.py:/source/app.py:ro
+      - ./web:/source/web:ro
+      - relay-program:/app
+      - relay-data:/data
+    # 根文件系统只读。下列能力用于启动时处理文件权限和降权。
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt: ['no-new-privileges:true']
+    # 定时检测网页是否响应，并限制 Docker 日志占用空间。
+    healthcheck: {test: ["CMD", "python", "/app/bootstrap.py", "--health"], interval: 30s, timeout: 5s, start_period: 10s, retries: 3}
+    logging: {driver: json-file, options: {max-size: "5m", max-file: "2"}}
+volumes: {relay-data: {}, relay-program: {}}

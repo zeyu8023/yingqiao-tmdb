@@ -1,0 +1,13 @@
+services:
+  tmdb-relay:
+    image: ghcr.io/zeyu8023/yingqiao-tmdb:v1.0.6
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      HOST: ${BIND_IP:-0.0.0.0}
+      PORT: ${PORT:-18012}
+    volumes:
+      - relay-data:/data
+volumes:
+  relay-data:

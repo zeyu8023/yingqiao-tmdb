@@ -1,0 +1,32 @@
+name: Build and publish image
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: python3 -m unittest discover -s tests
+      - name: Build and smoke test
+        run: |
+          docker build -t yingqiao:test .
+          docker run -d --name relay-test -p 127.0.0.1:18012:8080 -e ADMIN_PASSWORD=ci-smoke-test-password yingqiao:test
+          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:18012/health
+      - name: Publish to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker tag yingqiao:test "$image:latest"
+          docker tag yingqiao:test "$image:${GITHUB_REF_NAME}"
+          docker push "$image:${GITHUB_REF_NAME}"
+          docker push "$image:latest"
